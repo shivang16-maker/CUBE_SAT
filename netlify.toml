@@ -1,0 +1,13 @@
+#
+# Netlify configuration for the CUBESAT dashboard.
+# Static site: no build step; just publish the repo root.
+#
+[build]
+  command = ""
+  publish = "."
+
+# Optional: set a basic security header. Add more if needed.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
