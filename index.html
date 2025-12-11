@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CUBESAT TU MISSION CONTROL</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Three.js and GLTFLoader -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/DRACOLoader.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1><i class="fas fa-satellite"></i> CUBESAT TU MISSION CONTROL</h1>
+                <p class="subtitle">Real-time Telemetry Dashboard - ESP32-C3 SuperMini</p>
+            </div>
+            <div class="connection-indicators">
+                <div class="indicator" data-tooltip="USB Connection Status">
+                    <span class="dot" id="usb-dot"></span>
+                    <span>USB: <strong id="usb-status">OFFLINE</strong></span>
+                </div>
+                <div class="indicator" data-tooltip="Bluetooth Status">
+                    <span class="dot" id="bluetooth-dot"></span>
+                    <span>BLE: <strong id="bluetooth-status">OFFLINE</strong></span>
+                </div>
+                <div class="indicator" data-tooltip="WiFi Status">
+                    <span class="dot" id="wifi-dot"></span>
+                    <span>WiFi: <strong id="wifi-status">OFFLINE</strong></span>
+                </div>
+                <div class="indicator" data-tooltip="Packet Counter">
+                    <span class="dot online"></span>
+                    <span>Packets: <strong id="packet-count">0</strong></span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Dashboard -->
+        <div class="dashboard">
+            <!-- Left Column -->
+            <div class="left-column">
+                <!-- Connection Panel -->
+                <div class="card connection-panel">
+                    <h2><i class="fas fa-plug"></i> CONNECTION CONTROLS</h2>
+                    
+                    <!-- Connection Type Selection -->
+                    <div class="control-section">
+                        <h3>Connection Type</h3>
+                        <div class="connection-type-selector">
+                            <button class="connection-type-btn active" data-type="usb">
+                                <i class="fas fa-usb"></i> USB
+                            </button>
+                            <button class="connection-type-btn" data-type="bluetooth">
+                                <i class="fas fa-bluetooth"></i> Bluetooth
+                            </button>
+                            <button class="connection-type-btn" data-type="wifi">
+                                <i class="fas fa-wifi"></i> WiFi
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- USB Connection (Visible by default) -->
+                    <div class="control-section connection-section active" id="usb-section">
+                        <h3><i class="fas fa-usb"></i> USB Serial Connection</h3>
+                        <div class="input-group">
+                            <label for="port-select">Port:</label>
+                            <select id="port-select">
+                                <option value="auto">Auto Detect</option>
+                                <option value="COM3">COM3</option>
+                                <option value="COM4">COM4</option>
+                                <option value="COM5" selected>COM5</option>
+                                <option value="/dev/ttyUSB0">/dev/ttyUSB0</option>
+                                <option value="/dev/ttyACM0">/dev/ttyACM0</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label for="baud-select">Baud Rate:</label>
+                            <select id="baud-select">
+                                <option value="9600">9600</option>
+                                <option value="115200" selected>115200</option>
+                                <option value="230400">230400</option>
+                                <option value="460800">460800</option>
+                                <option value="921600">921600</option>
+                            </select>
+                        </div>
+                        <div class="button-group">
+                            <button id="connect-usb" class="btn connect-btn">
+                                <i class="fas fa-link"></i> Connect USB
+                            </button>
+                            <button id="disconnect-usb" class="btn disconnect-btn" disabled>
+                                <i class="fas fa-unlink"></i> Disconnect
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Bluetooth Connection (Hidden by default) -->
+                    <div class="control-section connection-section" id="bluetooth-section">
+                        <h3><i class="fas fa-bluetooth"></i> Bluetooth Connection</h3>
+                        <div class="input-group">
+                            <label for="bluetooth-device">Device:</label>
+                            <select id="bluetooth-device">
+                                <option value="">Select Device...</option>
+                            </select>
+                        </div>
+                        <div class="device-list" id="bluetooth-device-list">
+                            <div class="device-item empty">
+                                No devices found. Click "Scan" to discover.
+                            </div>
+                        </div>
+                        <div class="button-group">
+                            <button id="scan-bluetooth" class="btn connect-btn">
+                                <i class="fas fa-search"></i> Scan Devices
+                            </button>
+                            <button id="connect-bluetooth" class="btn connect-btn" disabled>
+                                <i class="fas fa-bluetooth"></i> Connect BLE
+                            </button>
+                            <button id="disconnect-bluetooth" class="btn disconnect-btn" disabled>
+                                <i class="fas fa-unlink"></i> Disconnect
+                            </button>
+                        </div>
+                        <div class="bluetooth-info">
+                            <div class="info-item">
+                                <span>Device Name:</span>
+                                <span id="bluetooth-device-name">-</span>
+                            </div>
+                            <div class="info-item">
+                                <span>RSSI:</span>
+                                <span id="bluetooth-rssi">- dBm</span>
+                            </div>
+                            <div class="info-item">
+                                <span>Services:</span>
+                                <span id="bluetooth-services">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- WiFi Connection (Hidden by default) -->
+                    <div class="control-section connection-section" id="wifi-section">
+                        <h3><i class="fas fa-wifi"></i> WiFi Connection</h3>
+                        <div class="input-group">
+                            <label for="wifi-ssid">SSID:</label>
+                            <input type="text" id="wifi-ssid" placeholder="Enter WiFi SSID">
+                        </div>
+                        <div class="input-group">
+                            <label for="wifi-password">Password:</label>
+                            <input type="password" id="wifi-password" placeholder="Enter WiFi password">
+                        </div>
+                        <div class="input-group">
+                            <label for="wifi-ip">ESP32 IP Address:</label>
+                            <input type="text" id="wifi-ip" placeholder="192.168.1.100" value="192.168.4.1">
+                        </div>
+                        <div class="input-group">
+                            <label for="wifi-port">Port:</label>
+                            <input type="number" id="wifi-port" value="80" min="1" max="65535">
+                        </div>
+                        <div class="button-group">
+                            <button id="scan-wifi" class="btn connect-btn">
+                                <i class="fas fa-wifi"></i> Scan Networks
+                            </button>
+                            <button id="connect-wifi" class="btn connect-btn">
+                                <i class="fas fa-link"></i> Connect WiFi
+                            </button>
+                            <button id="disconnect-wifi" class="btn disconnect-btn" disabled>
+                                <i class="fas fa-unlink"></i> Disconnect
+                            </button>
+                        </div>
+                        <div class="wifi-info">
+                            <div class="info-item">
+                                <span>Signal Strength:</span>
+                                <span id="wifi-signal">-</span>
+                            </div>
+                            <div class="info-item">
+                                <span>IP Address:</span>
+                                <span id="wifi-ip-address">-</span>
+                            </div>
+                            <div class="info-item">
+                                <span>Connected:</span>
+                                <span id="wifi-connected">No</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Data Stream Controls (Common for all connections) -->
+                    <div class="control-section">
+                        <h3>Data Stream Controls</h3>
+                        <div class="button-group">
+                            <button id="start-data" class="btn start-btn" disabled>
+                                <i class="fas fa-play"></i> Start Data
+                            </button>
+                            <button id="stop-data" class="btn stop-btn" disabled>
+                                <i class="fas fa-stop"></i> Stop Data
+                            </button>
+                            <button id="clear-data" class="btn clear-btn">
+                                <i class="fas fa-trash"></i> Clear Data
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="connection-status">
+                        <div id="status-text">Select connection type to begin...</div>
+                        <div class="status-details">
+                            <span>Last Packet: <span id="last-packet">Never</span></span>
+                            <span>Rate: <span id="data-rate">0.0 Hz</span></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- System Status Panel -->
+                <div class="card system-panel">
+                    <h2><i class="fas fa-microchip"></i> ESP32-C3 STATUS</h2>
+                    <div class="status-grid">
+                        <div class="status-item">
+                            <div class="status-icon power">
+                                <i class="fas fa-battery-three-quarters"></i>
+                            </div>
+                            <div class="status-info">
+                                <div class="label">Power</div>
+                                <div class="value" id="power-value">3.62V</div>
+                                <div class="sub-value" id="power-percent">51%</div>
+                            </div>
+                        </div>
+                        <div class="status-item">
+                            <div class="status-icon signal">
+                                <i class="fas fa-signal"></i>
+                            </div>
+                            <div class="status-info">
+                                <div class="label">Signal</div>
+                                <div class="value" id="signal-value">-65 dBm</div>
+                                <div class="sub-value" id="signal-quality">Good</div>
+                            </div>
+                        </div>
+                        <div class="status-item">
+                            <div class="status-icon memory">
+                                <i class="fas fa-memory"></i>
+                            </div>
+                            <div class="status-info">
+                                <div class="label">Free Heap</div>
+                                <div class="value" id="heap-value">181 KB</div>
+                                <div class="sub-value" id="heap-percent">84%</div>
+                            </div>
+                        </div>
+                        <div class="status-item">
+                            <div class="status-icon cpu">
+                                <i class="fas fa-microchip"></i>
+                            </div>
+                            <div class="status-info">
+                                <div class="label">CPU Usage</div>
+                                <div class="value" id="cpu-value">23%</div>
+                                <div class="sub-value" id="cpu-temp">42°C</div>
+                            </div>
+                        </div>
+                        <div class="status-item">
+                            <div class="status-icon light">
+                                <i class="fas fa-sun"></i>
+                            </div>
+                            <div class="status-info">
+                                <div class="label">Light Level</div>
+                                <div class="value" id="light-value">51%</div>
+                            </div>
+                        </div>
+                        <div class="status-item">
+                            <div class="status-icon uptime">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                            <div class="status-info">
+                                <div class="label">Uptime</div>
+                                <div class="value" id="system-uptime">05:11:22</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Wireless Signal Panel -->
+                <div class="card signal-panel">
+                    <h2><i class="fas fa-signal"></i> WIRELESS SIGNAL</h2>
+                    <div class="signal-content">
+                        <div class="signal-metrics">
+                            <div class="signal-metric">
+                                <div class="metric-label">WiFi RSSI</div>
+                                <div class="metric-value" id="wifi-rssi-value">-65</div>
+                                <div class="metric-unit">dBm</div>
+                            </div>
+                            <div class="signal-metric">
+                                <div class="metric-label">BLE RSSI</div>
+                                <div class="metric-value" id="ble-rssi-value">-72</div>
+                                <div class="metric-unit">dBm</div>
+                            </div>
+                            <div class="signal-metric">
+                                <div class="metric-label">SNR</div>
+                                <div class="metric-value" id="snr-value">15.2</div>
+                                <div class="metric-unit">dB</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Fixed Wave Chart Container -->
+                        <div class="signal-waveform">
+                            <canvas id="signal-waveform"></canvas>
+                        </div>
+                        
+                        <div class="signal-details">
+                            <div class="detail-row">
+                                <span class="detail-label">WiFi Channel:</span>
+                                <span class="detail-value" id="wifi-channel">6</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">BLE Channel:</span>
+                                <span class="detail-value" id="ble-channel">37</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">TX Power:</span>
+                                <span class="detail-value" id="tx-power">+8 dBm</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Data Rate:</span>
+                                <span class="detail-value" id="datarate-value">9.6 kbps</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Middle Column -->
+            <div class="middle-column">
+                <!-- 3D Satellite Panel -->
+                <div class="card satellite-panel">
+                    <h2><i class="fas fa-satellite-dish"></i> SATELLITE 3D ORIENTATION</h2>
+                    <div class="satellite-container">
+                        <!-- Model upload and status -->
+                        <div class="model-upload-section">
+                            <div class="upload-controls">
+                                <label for="model-upload" class="btn small-btn">
+                                    <i class="fas fa-upload"></i> Upload GLB Model
+                                </label>
+                                <input type="file" id="model-upload" accept=".glb,.gltf" style="display: none;">
+                                <button id="load-default-model" class="btn small-btn">
+                                    <i class="fas fa-cube"></i> Use Default Cube
+                                </button>
+                            </div>
+                            <div id="model-loading" style="display: none;">
+                                <div class="loading-content">
+                                    <i class="fas fa-spinner fa-spin"></i>
+                                    <span id="loading-text">Loading model...</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="satellite-viewer"></div>
+                        <div class="orientation-controls">
+                            <div class="orientation-readings">
+                                <div class="reading">
+                                    <span class="label">Roll (X):</span>
+                                    <span class="value" id="roll-value">0.0°</span>
+                                </div>
+                                <div class="reading">
+                                    <span class="label">Pitch (Y):</span>
+                                    <span class="value" id="pitch-value">0.0°</span>
+                                </div>
+                                <div class="reading">
+                                    <span class="label">Yaw (Z):</span>
+                                    <span class="value" id="yaw-value">0.0°</span>
+                                </div>
+                            </div>
+                            <div class="control-buttons">
+                                <button id="reset-view" class="btn small-btn">
+                                    <i class="fas fa-redo"></i> Reset
+                                </button>
+                                <button id="auto-rotate" class="btn small-btn active">
+                                    <i class="fas fa-sync"></i> Auto Rotate
+                                </button>
+                                <button id="toggle-axes" class="btn small-btn">
+                                    <i class="fas fa-crosshairs"></i> Axes
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Environment Panel -->
+                <div class="card environment-panel">
+                    <h2><i class="fas fa-thermometer-half"></i> ENVIRONMENT</h2>
+                    <div class="environment-grid">
+                        <div class="env-item">
+                            <div class="env-icon">
+                                <i class="fas fa-thermometer-half"></i>
+                            </div>
+                            <div class="env-info">
+                                <div class="label">Temperature</div>
+                                <div class="value" id="temp-value">23.0 °C</div>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="temp-bar"></div>
+                            </div>
+                        </div>
+                        <div class="env-item">
+                            <div class="env-icon">
+                                <i class="fas fa-tint"></i>
+                            </div>
+                            <div class="env-info">
+                                <div class="label">Humidity</div>
+                                <div class="value" id="humidity-value">52.7 %</div>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="humidity-bar"></div>
+                            </div>
+                        </div>
+                        <div class="env-item">
+                            <div class="env-icon">
+                                <i class="fas fa-tachometer-alt"></i>
+                            </div>
+                            <div class="env-info">
+                                <div class="label">Pressure</div>
+                                <div class="value" id="pressure-value">1016.01 hPa</div>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="pressure-bar"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Motion Panel -->
+                <div class="card motion-panel">
+                    <h2><i class="fas fa-compass"></i> MOTION & ORIENTATION</h2>
+                    <div class="motion-content">
+                        <div class="acceleration-grid">
+                            <div class="axis-card">
+                                <div class="axis-header">
+                                    <div class="axis-label">X-AXIS</div>
+                                    <div class="axis-icon">
+                                        <i class="fas fa-arrows-alt-h"></i>
+                                    </div>
+                                </div>
+                                <div class="axis-value" id="x-axis-value">10.10</div>
+                                <div class="axis-unit">m/s²</div>
+                            </div>
+                            <div class="axis-card">
+                                <div class="axis-header">
+                                    <div class="axis-label">Y-AXIS</div>
+                                    <div class="axis-icon">
+                                        <i class="fas fa-arrows-alt-v"></i>
+                                    </div>
+                                </div>
+                                <div class="axis-value" id="y-axis-value">11.23</div>
+                                <div class="axis-unit">m/s²</div>
+                            </div>
+                            <div class="axis-card">
+                                <div class="axis-header">
+                                    <div class="axis-label">Z-AXIS</div>
+                                    <div class="axis-icon">
+                                        <i class="fas fa-arrows-alt"></i>
+                                    </div>
+                                </div>
+                                <div class="axis-value" id="z-axis-value">9.32</div>
+                                <div class="axis-unit">m/s²</div>
+                            </div>
+                        </div>
+                        
+                        <div class="gyro-section">
+                            <h3>Gyroscope Data</h3>
+                            <div class="gyro-grid">
+                                <div class="gyro-item">
+                                    <span>Gyro X:</span>
+                                    <span id="gyro-x">18.2 °/s</span>
+                                </div>
+                                <div class="gyro-item">
+                                    <span>Gyro Y:</span>
+                                    <span id="gyro-y">7.4 °/s</span>
+                                </div>
+                                <div class="gyro-item">
+                                    <span>Gyro Z:</span>
+                                    <span id="gyro-z">-16.5 °/s</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column -->
+            <div class="right-column">
+                <!-- Air Quality Panel -->
+                <div class="card air-quality-panel">
+                    <h2><i class="fas fa-wind"></i> AIR QUALITY</h2>
+                    <div class="air-quality-content">
+                        <div class="co2-display">
+                            <div class="co2-value" id="co2-value">464</div>
+                            <div class="co2-unit">ppm</div>
+                        </div>
+                        <div class="quality-status" id="quality-status">
+                            <i class="fas fa-check-circle"></i> Good
+                        </div>
+                        <div class="air-details">
+                            <div class="detail-item">
+                                <span class="label">CO₂ Level:</span>
+                                <span class="value" id="co2-level">464 ppm</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">Altitude:</span>
+                                <span class="value" id="altitude-value">920 m</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">GPS Position:</span>
+                                <span class="value" id="gps-position">12.97° N, 77.59° E</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Telemetry Log Panel -->
+                <div class="card telemetry-panel">
+                    <h2><i class="fas fa-history"></i> TELEMETRY LOG</h2>
+                    <div class="telemetry-content">
+                        <div class="log-header">
+                            <span>Time</span>
+                            <span>Data</span>
+                        </div>
+                        <div class="log-list" id="telemetry-list">
+                            <div class="log-item empty">
+                                Waiting for data...
+                            </div>
+                        </div>
+                        <div class="log-controls">
+                            <button id="export-log" class="btn small-btn">
+                                <i class="fas fa-download"></i> Export CSV
+                            </button>
+                            <button id="save-model-view" class="btn small-btn">
+                                <i class="fas fa-camera"></i> Screenshot
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Data Charts Panel -->
+                <div class="card charts-panel">
+                    <h2><i class="fas fa-chart-line"></i> DATA CHARTS</h2>
+                    <div class="charts-content">
+                        <div class="chart-container">
+                            <canvas id="temp-chart"></canvas>
+                            <div class="chart-label">Temperature Trend</div>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="signal-chart"></canvas>
+                            <div class="chart-label">Signal Strength</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="footer-content">
+                <div class="connection-info">
+                    <span>Connection: <strong id="connection-type">DISCONNECTED</strong></span>
+                    <span class="divider">|</span>
+                    <span>Last Update: <span id="last-update">--:--:--</span></span>
+                    <span class="divider">|</span>
+                    <span>Uptime: <span id="uptime">00:00:00</span></span>
+                </div>
+                <div class="footer-text">
+                    CUBESAT TU MISSION CONTROL DASHBOARD v2.0 | ESP32-C3 SuperMini | USB/Bluetooth/WiFi Support
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- JavaScript Files -->
+    <script src="script.js"></script>
+    <script src="cube3d.js"></script>
+    <script src="charts.js"></script>
+</body>
+</html>
