@@ -1,10 +1,16 @@
 """
-Drone Soccer Arena Add-ons -- Fusion 360 script
+Drone Soccer Arena Add-ons (Class 20) -- Fusion 360 script
 
-Adds to the open arena design:
-  * 2 goal posts  -- a vertical ring (hoop) on a stand at each end of the arena
-  * 4 obstacles   -- 2 round pillars + 2 arch gates, placed point-symmetric
-                     about the arena centre so both teams get the same course
+Adds to the open arena design, sized for Drone Soccer Class 20
+(20 cm ball-drone, 8 m x 4 m x 3 m arena):
+
+  * 2 goal rings  -- 30 cm inner / 50 cm outer diameter, 10 cm thick,
+                     1.5 m in from each short side, on a stand
+  * 4 obstacles
+      1. Ring       -- hoop on a stand to fly through
+      2. Half gate  -- half-circle arch standing on the floor (fly low)
+      3. High gate  -- raised window (fly high)
+      4. 2 x poles  -- pair of vertical poles to slalom around
 
 How it works
   The script measures the bounding box of everything already in the design
@@ -32,44 +38,68 @@ except ImportError:  # allows the layout maths to be tested outside Fusion
 # --------------------------------------------------------------------------
 
 # Arena size. With AUTO_FIT = True these are measured from your model and the
-# values below are only used if the design is empty.
+# values below are only used if the design is empty. Class 20: 8 x 4 x 3 m.
 AUTO_FIT = True
-ARENA_LENGTH_MM = 12000.0
-ARENA_WIDTH_MM = 6000.0
-ARENA_HEIGHT_MM = 4000.0
+ARENA_LENGTH_MM = 8000.0
+ARENA_WIDTH_MM = 4000.0
+ARENA_HEIGHT_MM = 3000.0
 
 # "auto" picks the smallest dimension of the arena as the vertical one.
 # Set to "X", "Y" or "Z" if the auto-detection gets it wrong.
 UP_AXIS = "auto"
 
-# Goal: a vertical ring the drone (ball) flies through along the arena length.
-GOAL_INNER_DIAMETER_MM = 600.0      # opening of the ring
-GOAL_TUBE_DIAMETER_MM = 60.0        # thickness of the ring tube
-GOAL_CENTER_HEIGHT_MM = None        # None -> 45 % of arena height
-GOAL_DISTANCE_FROM_END_MM = None    # None -> 12 % of arena length
-GOAL_POST_DIAMETER_MM = 50.0
-GOAL_BASE_DIAMETER_MM = 600.0
+# Shared by every stand
 BASE_THICKNESS_MM = 20.0
 
-# Obstacles sit at (+/- X_FRACTION * length, +/- Y_FRACTION * width) from the
-# arena centre: pillars on one diagonal, arch gates on the other.
-OBSTACLE_X_FRACTION = 0.25
-OBSTACLE_Y_FRACTION = 0.25
+# ---- Goal rings (Class 20) -------------------------------------------------
+GOAL_INNER_DIAMETER_MM = 300.0
+GOAL_OUTER_DIAMETER_MM = 500.0
+GOAL_RING_THICKNESS_MM = 100.0
+GOAL_CENTER_HEIGHT_MM = 1800.0
+GOAL_DISTANCE_FROM_END_MM = 1500.0      # from the short side, towards centre
+GOAL_POST_DIAMETER_MM = 50.0
+GOAL_BASE_DIAMETER_MM = 500.0
 
-PILLAR_DIAMETER_MM = 400.0
-PILLAR_HEIGHT_MM = None             # None -> 75 % of arena height
-PILLAR_BASE_DIAMETER_MM = 700.0
+# ---- Obstacle positions ------------------------------------------------------
+# Measured from the arena centre: a = along the length (towards the goals),
+# b = across the width. The centre line is left clear for the face-off.
+RING_POS_MM = (-1200.0, 1000.0)
+HALF_GATE_POS_MM = (1200.0, -1000.0)
+HIGH_GATE_POS_MM = (1200.0, 1000.0)
+POLES_POS_MM = (-1200.0, -1000.0)       # midpoint between the two poles
 
-ARCH_OPENING_WIDTH_MM = 1500.0      # clear gap between the two arch posts
-ARCH_HEIGHT_MM = None               # None -> 60 % of arena height
-ARCH_POST_DIAMETER_MM = 100.0
-ARCH_BEAM_SIZE_MM = 100.0           # square cross-section of the top beam
-ARCH_BASE_DIAMETER_MM = 400.0
+# ---- 1. Ring -----------------------------------------------------------------
+RING_INNER_DIAMETER_MM = 600.0
+RING_TUBE_DIAMETER_MM = 40.0
+RING_CENTER_HEIGHT_MM = 1200.0
+RING_POST_DIAMETER_MM = 40.0
+RING_BASE_DIAMETER_MM = 400.0
 
-# Colours (R, G, B). Team colours for the goals, safety colours for obstacles.
-GOAL_COLORS = [(220, 40, 40), (40, 90, 220)]   # -X end, +X end
-PILLAR_COLOR = (255, 140, 0)
-ARCH_COLOR = (250, 210, 0)
+# ---- 2. Half gate (half-circle arch on the floor) ----------------------------
+HALF_GATE_INNER_DIAMETER_MM = 900.0     # opening is 900 wide x 450 high
+HALF_GATE_TUBE_DIAMETER_MM = 40.0
+HALF_GATE_FOOT_DIAMETER_MM = 200.0
+
+# ---- 3. High gate (raised window) --------------------------------------------
+HIGH_GATE_OPENING_WIDTH_MM = 800.0
+HIGH_GATE_OPENING_BOTTOM_MM = 1500.0    # height of the lower bar
+HIGH_GATE_OPENING_TOP_MM = 2200.0       # height of the upper bar
+HIGH_GATE_POST_DIAMETER_MM = 50.0
+HIGH_GATE_BAR_SIZE_MM = 50.0            # square bar section
+HIGH_GATE_BASE_DIAMETER_MM = 300.0
+
+# ---- 4. Two poles ------------------------------------------------------------
+POLE_DIAMETER_MM = 50.0
+POLE_HEIGHT_MM = 2500.0
+POLE_SPACING_MM = 1000.0                # centre to centre, along the length
+POLE_BASE_DIAMETER_MM = 300.0
+
+# Colours (R, G, B)
+GOAL_COLORS = [(220, 40, 40), (40, 90, 220)]   # -length end, +length end
+RING_COLOR = (255, 140, 0)
+HALF_GATE_COLOR = (250, 210, 0)
+HIGH_GATE_COLOR = (0, 180, 120)
+POLE_COLOR = (150, 60, 220)
 
 PREFIX = "DSA_"
 
@@ -77,87 +107,101 @@ PREFIX = "DSA_"
 # --------------------------------------------------------------------------
 # Layout (pure maths, arena coordinates in mm)
 #   a = along the arena length, b = across the width, h = height above floor,
-#   origin at the centre of the arena floor.
+#   origin at the centre of the arena floor. Drones fly through every
+#   opening along a, i.e. towards the goals.
 # --------------------------------------------------------------------------
 
-def _or_default(value, default):
-    return default if value is None else value
+ALONG = (1.0, 0.0, 0.0)
+
+
+def _cyl(a, b, h1, h2, diameter):
+    return {"type": "cylinder", "p1": (a, b, h1), "p2": (a, b, h2),
+            "r": diameter / 2.0}
+
+
+def _base(a, b, diameter):
+    return _cyl(a, b, 0.0, BASE_THICKNESS_MM, diameter)
 
 
 def compute_layout(length, width, height):
     """Return a list of parts: {name, color, shapes:[...]} in arena mm."""
     parts = []
 
-    # ---- Goals -----------------------------------------------------------
-    tube_r = GOAL_TUBE_DIAMETER_MM / 2.0
-    ring_major = GOAL_INNER_DIAMETER_MM / 2.0 + tube_r
-    ring_outer = ring_major + tube_r
-    center_h = _or_default(GOAL_CENTER_HEIGHT_MM, 0.45 * height)
-    # keep the ring above the base and below the roof
-    center_h = max(center_h, ring_outer + BASE_THICKNESS_MM + 100.0)
-    center_h = min(center_h, max(height - ring_outer - 50.0, ring_outer))
-    goal_dist = _or_default(GOAL_DISTANCE_FROM_END_MM, 0.12 * length)
-    goal_dist = max(goal_dist, GOAL_BASE_DIAMETER_MM / 2.0)
-
+    # ---- Goal rings ------------------------------------------------------
+    goal_outer_r = GOAL_OUTER_DIAMETER_MM / 2.0
+    goal_h = min(GOAL_CENTER_HEIGHT_MM, height - goal_outer_r - 50.0)
+    goal_a = length / 2.0 - min(GOAL_DISTANCE_FROM_END_MM, length / 4.0)
     for i, side in enumerate((-1, 1)):
-        a = side * (length / 2.0 - goal_dist)
+        a = side * goal_a
         parts.append({
-            "name": "Goal_%s" % ("A" if side < 0 else "B"),
+            "name": "Goal_Ring_%s" % ("A" if side < 0 else "B"),
             "color": GOAL_COLORS[i],
             "shapes": [
-                {"type": "torus", "center": (a, 0.0, center_h),
-                 "axis": (1.0, 0.0, 0.0), "major": ring_major, "minor": tube_r},
-                {"type": "cylinder", "p1": (a, 0.0, 0.0),
-                 "p2": (a, 0.0, center_h - ring_major),
-                 "r": GOAL_POST_DIAMETER_MM / 2.0},
-                {"type": "cylinder", "p1": (a, 0.0, 0.0),
-                 "p2": (a, 0.0, BASE_THICKNESS_MM),
-                 "r": GOAL_BASE_DIAMETER_MM / 2.0},
+                {"type": "annulus", "center": (a, 0.0, goal_h), "axis": ALONG,
+                 "outer": goal_outer_r,
+                 "inner": GOAL_INNER_DIAMETER_MM / 2.0,
+                 "thickness": GOAL_RING_THICKNESS_MM},
+                _cyl(a, 0.0, 0.0, goal_h - goal_outer_r + 10.0,
+                     GOAL_POST_DIAMETER_MM),
+                _base(a, 0.0, GOAL_BASE_DIAMETER_MM),
             ],
         })
 
-    # ---- Obstacles -------------------------------------------------------
-    oa = OBSTACLE_X_FRACTION * length
-    ob = OBSTACLE_Y_FRACTION * width
+    # ---- 1. Ring ---------------------------------------------------------
+    a, b = RING_POS_MM
+    tube_r = RING_TUBE_DIAMETER_MM / 2.0
+    major = RING_INNER_DIAMETER_MM / 2.0 + tube_r
+    ring_h = min(RING_CENTER_HEIGHT_MM, height - major - tube_r - 50.0)
+    parts.append({
+        "name": "Obstacle_1_Ring", "color": RING_COLOR,
+        "shapes": [
+            {"type": "torus", "center": (a, b, ring_h), "axis": ALONG,
+             "major": major, "minor": tube_r},
+            _cyl(a, b, 0.0, ring_h - major, RING_POST_DIAMETER_MM),
+            _base(a, b, RING_BASE_DIAMETER_MM),
+        ],
+    })
 
-    pillar_h = min(_or_default(PILLAR_HEIGHT_MM, 0.75 * height), height)
-    for n, (sa, sb) in enumerate(((1, 1), (-1, -1)), start=1):
-        a, b = sa * oa, sb * ob
-        parts.append({
-            "name": "Obstacle_%d_Pillar" % n,
-            "color": PILLAR_COLOR,
-            "shapes": [
-                {"type": "cylinder", "p1": (a, b, 0.0), "p2": (a, b, pillar_h),
-                 "r": PILLAR_DIAMETER_MM / 2.0},
-                {"type": "cylinder", "p1": (a, b, 0.0),
-                 "p2": (a, b, BASE_THICKNESS_MM),
-                 "r": PILLAR_BASE_DIAMETER_MM / 2.0},
-            ],
-        })
+    # ---- 2. Half gate ----------------------------------------------------
+    a, b = HALF_GATE_POS_MM
+    tube_r = HALF_GATE_TUBE_DIAMETER_MM / 2.0
+    major = HALF_GATE_INNER_DIAMETER_MM / 2.0 + tube_r
+    parts.append({
+        "name": "Obstacle_2_Half_Gate", "color": HALF_GATE_COLOR,
+        "shapes": [
+            {"type": "half_torus", "center": (a, b, 0.0), "axis": ALONG,
+             "major": major, "minor": tube_r},
+            _base(a, b - major, HALF_GATE_FOOT_DIAMETER_MM),
+            _base(a, b + major, HALF_GATE_FOOT_DIAMETER_MM),
+        ],
+    })
 
-    arch_h = min(_or_default(ARCH_HEIGHT_MM, 0.60 * height),
-                 height - ARCH_BEAM_SIZE_MM)
-    post_r = ARCH_POST_DIAMETER_MM / 2.0
-    # opening must fit between the arena centre line and the side wall
-    max_opening = max(ob * 2.0 - 2.0 * ARCH_BASE_DIAMETER_MM, 300.0)
-    opening = min(ARCH_OPENING_WIDTH_MM, max_opening)
-    half_span = opening / 2.0 + post_r          # centre line of each post
-    for n, (sa, sb) in enumerate(((1, -1), (-1, 1)), start=3):
-        a, b = sa * oa, sb * ob
-        shapes = []
-        for pb in (b - half_span, b + half_span):
-            shapes.append({"type": "cylinder", "p1": (a, pb, 0.0),
-                           "p2": (a, pb, arch_h + ARCH_BEAM_SIZE_MM / 2.0),
-                           "r": post_r})
-            shapes.append({"type": "cylinder", "p1": (a, pb, 0.0),
-                           "p2": (a, pb, BASE_THICKNESS_MM),
-                           "r": ARCH_BASE_DIAMETER_MM / 2.0})
-        shapes.append({"type": "box", "center": (a, b, arch_h),
-                       "size_b": 2.0 * half_span + ARCH_POST_DIAMETER_MM,
-                       "size_a": ARCH_BEAM_SIZE_MM,
-                       "size_h": ARCH_BEAM_SIZE_MM})
-        parts.append({"name": "Obstacle_%d_Arch" % n, "color": ARCH_COLOR,
-                      "shapes": shapes})
+    # ---- 3. High gate ----------------------------------------------------
+    a, b = HIGH_GATE_POS_MM
+    bar = HIGH_GATE_BAR_SIZE_MM
+    top = min(HIGH_GATE_OPENING_TOP_MM, height - bar - 50.0)
+    bottom = min(HIGH_GATE_OPENING_BOTTOM_MM, top - 300.0)
+    post_off = (HIGH_GATE_OPENING_WIDTH_MM + HIGH_GATE_POST_DIAMETER_MM) / 2.0
+    bar_len = HIGH_GATE_OPENING_WIDTH_MM + 2.0 * HIGH_GATE_POST_DIAMETER_MM
+    shapes = []
+    for pb in (b - post_off, b + post_off):
+        shapes.append(_cyl(a, pb, 0.0, top + bar, HIGH_GATE_POST_DIAMETER_MM))
+        shapes.append(_base(a, pb, HIGH_GATE_BASE_DIAMETER_MM))
+    for bar_h in (bottom - bar / 2.0, top + bar / 2.0):
+        shapes.append({"type": "box", "center": (a, b, bar_h),
+                       "size": (bar, bar_len, bar)})
+    parts.append({"name": "Obstacle_3_High_Gate", "color": HIGH_GATE_COLOR,
+                  "shapes": shapes})
+
+    # ---- 4. Two poles ----------------------------------------------------
+    a, b = POLES_POS_MM
+    pole_h = min(POLE_HEIGHT_MM, height)
+    shapes = []
+    for pa in (a - POLE_SPACING_MM / 2.0, a + POLE_SPACING_MM / 2.0):
+        shapes.append(_cyl(pa, b, 0.0, pole_h, POLE_DIAMETER_MM))
+        shapes.append(_base(pa, b, POLE_BASE_DIAMETER_MM))
+    parts.append({"name": "Obstacle_4_Two_Poles", "color": POLE_COLOR,
+                  "shapes": shapes})
 
     return parts
 
@@ -262,21 +306,49 @@ def _build_frame(root):
         length, width, height, notes
 
 
+def _offset(p, axis, dist):
+    return tuple(p[k] + axis[k] * dist for k in range(3))
+
+
+def _cylinder(tbm, frame, p1, p2, r_mm):
+    r = r_mm / 10.0
+    return tbm.createCylinderOrCone(frame.point(p1), r, frame.point(p2), r)
+
+
+def _box(tbm, frame, center, size):
+    obb = adsk.core.OrientedBoundingBox3D.create(
+        frame.point(center),
+        frame.vector((1.0, 0.0, 0.0)), frame.vector((0.0, 1.0, 0.0)),
+        size[0] / 10.0, size[1] / 10.0, size[2] / 10.0)
+    return tbm.createBox(obb)
+
+
 def _make_shape(tbm, frame, s):
     if s["type"] == "cylinder":
-        r = s["r"] / 10.0
-        return tbm.createCylinderOrCone(frame.point(s["p1"]), r,
-                                        frame.point(s["p2"]), r)
-    if s["type"] == "torus":
-        return tbm.createTorus(frame.point(s["center"]), frame.vector(s["axis"]),
+        return _cylinder(tbm, frame, s["p1"], s["p2"], s["r"])
+    if s["type"] in ("torus", "half_torus"):
+        body = tbm.createTorus(frame.point(s["center"]), frame.vector(s["axis"]),
                                s["major"] / 10.0, s["minor"] / 10.0)
+        if s["type"] == "half_torus":
+            # keep only the half above the centre (an arch standing on h = 0)
+            reach = 2.0 * (s["major"] + s["minor"]) + 10.0
+            c = s["center"]
+            keep = _box(tbm, frame, (c[0], c[1], c[2] + reach / 4.0),
+                        (reach, reach, reach / 2.0))
+            tbm.booleanOperation(body, keep,
+                                 adsk.fusion.BooleanTypes.IntersectionBooleanType)
+        return body
+    if s["type"] == "annulus":
+        c, axis, half = s["center"], s["axis"], s["thickness"] / 2.0
+        body = _cylinder(tbm, frame, _offset(c, axis, -half),
+                         _offset(c, axis, half), s["outer"])
+        hole = _cylinder(tbm, frame, _offset(c, axis, -half - 1.0),
+                         _offset(c, axis, half + 1.0), s["inner"])
+        tbm.booleanOperation(body, hole,
+                             adsk.fusion.BooleanTypes.DifferenceBooleanType)
+        return body
     if s["type"] == "box":
-        obb = adsk.core.OrientedBoundingBox3D.create(
-            frame.point(s["center"]),
-            frame.vector((0.0, 1.0, 0.0)),      # long side across the width
-            frame.vector((1.0, 0.0, 0.0)),
-            s["size_b"] / 10.0, s["size_a"] / 10.0, s["size_h"] / 10.0)
-        return tbm.createBox(obb)
+        return _box(tbm, frame, s["center"], s["size"])
     raise ValueError("unknown shape type %r" % s["type"])
 
 

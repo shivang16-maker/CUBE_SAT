@@ -3,7 +3,7 @@
 	"type": "script",
 	"author": "",
 	"description": {
-		"": "Adds 4 obstacles (2 pillars, 2 arch gates) and 2 ring goal posts to a drone soccer arena."
+		"": "Adds Class 20 goal rings and 4 obstacles (ring, half gate, high gate, 2 poles) to a drone soccer arena."
 	},
 	"supportedOS": "windows|mac",
 	"editEnabled": true
