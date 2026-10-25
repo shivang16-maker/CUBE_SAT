@@ -1,10 +1,13 @@
 {
-	"autodeskProduct": "Fusion360",
+	"autodeskProduct": "Fusion",
 	"type": "script",
+	"id": "6927bc3e-7b68-46a5-ac1e-e4462b35b802",
 	"author": "",
 	"description": {
 		"": "Adds Class 20 goal rings and 4 obstacles (ring, half gate, high gate, 2 poles) to a drone soccer arena."
 	},
+	"version": "1.0.0",
+	"runOnStartup": false,
 	"supportedOS": "windows|mac",
 	"editEnabled": true
 }
