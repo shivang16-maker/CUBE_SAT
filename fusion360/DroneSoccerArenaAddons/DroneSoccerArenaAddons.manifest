@@ -1,0 +1,10 @@
+{
+	"autodeskProduct": "Fusion360",
+	"type": "script",
+	"author": "",
+	"description": {
+		"": "Adds 4 obstacles (2 pillars, 2 arch gates) and 2 ring goal posts to a drone soccer arena."
+	},
+	"supportedOS": "windows|mac",
+	"editEnabled": true
+}
